@@ -157,7 +157,7 @@ static void key_callback(GLFWwindow* w, int key, int scancode, int action, int m
 
 #else
 
-void Canvas::Impl::backend_init_window() {}
+void Canvas::Impl::backend_init_window(const Canvas::Parameters& params) {}
 bool Canvas::Impl::backend_should_window_close() { return false; }
 void Canvas::Impl::backend_window_size(WindowSize size) {}
 double Canvas::Impl::backend_get_time() { return 0; }
