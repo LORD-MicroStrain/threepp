@@ -170,8 +170,8 @@ void Canvas::Impl::backend_window_destroy() {}
     if (imp == nullptr)
         imp = new Impl(params);
    
-    pimpl_ = std::unique_ptr<Impl>(new Impl(params));
-}
+    pimpl_ = std::unique_ptr<Impl>(imp);
+    }
 
     Canvas::Canvas(const std::string& name)
         : Canvas(Canvas::Parameters().title(name)) {}
