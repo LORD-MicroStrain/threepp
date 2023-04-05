@@ -83,10 +83,17 @@ endif ()
 # ==============================================================================
 
 # Data files
+<<<<<<< HEAD
 file(COPY "${CMAKE_CURRENT_LIST_DIR}/data/favicon.png" DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/bin)
 file(COPY "${CMAKE_CURRENT_LIST_DIR}/data/models" DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/bin/data)
 file(COPY "${CMAKE_CURRENT_LIST_DIR}/data/textures" DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/bin/data)
 file(COPY "${CMAKE_CURRENT_LIST_DIR}/data/fonts" DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/bin/data)
+=======
+file(COPY "${CMAKE_CURRENT_SOURCE_DIR}/data/favicon.png" DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/bin)
+file(COPY "${CMAKE_CURRENT_SOURCE_DIR}/data/models" DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/bin/data)
+file(COPY "${CMAKE_CURRENT_SOURCE_DIR}/data/textures" DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/bin/data)
+file(COPY "${CMAKE_CURRENT_SOURCE_DIR}/data/fonts" DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/bin/data)
+>>>>>>> 9a6aa98e3dd5ed32b0d307dd403e1a0f838951fd
 
 
 # ==============================================================================
