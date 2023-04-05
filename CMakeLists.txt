@@ -6,6 +6,7 @@ message("Current ${PROJECT_NAME} version: ${CMAKE_PROJECT_VERSION}\n")
 option(THREEPP_BUILD_EXAMPLES "Build examples" ON)
 option(THREEPP_BUILD_EXAMPLE_PROJECTS "Build example projects" OFF)
 option(THREEPP_BUILD_TESTS "Build test suite" ON)
+option(THREEPP_USE_CUSTOM_BACKEND "Use custom backend" OFF)
 option(BUILD_SHARED_LIBS "Build shared libraries" OFF)
 
 # ==============================================================================
@@ -27,14 +28,19 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/bin)
 # Dependencies
 # ==============================================================================
 
+if(NOT THREEPP_USE_CUSTOM_BACKEND)
 find_package(glfw3 CONFIG REQUIRED)
+else()
+add_definitions(-DCUSTOM_BACKEND)
+endif()
+
 find_package(glad CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG QUIET)
 find_package(CURL CONFIG QUIET)
 find_package(assimp CONFIG QUIET)
 find_package(stb CONFIG QUIET)
 
-if (NOT TARGET "glfw::glfw" AND TARGET "glfw")
+if (NOT THREEPP_USE_CUSTOM_BACKEND AND NOT TARGET "glfw::glfw" AND TARGET "glfw")
     add_library(glfw::glfw ALIAS glfw)
 endif()
 

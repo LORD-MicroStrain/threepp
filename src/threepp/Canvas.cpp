@@ -2,44 +2,21 @@
 #include "threepp/Canvas.hpp"
 #include "threepp/loaders/ImageLoader.hpp"
 
-#include "threepp/core/Clock.hpp"
-#include "threepp/utils/StringUtils.hpp"
 
-#define GLFW_INCLUDE_NONE
-#include <GLFW/glfw3.h>
-#include <glad/glad.h>
+#ifndef CUSTOM_BACKEND
+  #define GLFW_INCLUDE_NONE
+  #include <GLFW/glfw3.h>
+  #include <glad/glad.h>
+#endif
 
-#include <iostream>
-#include <optional>
-#include <queue>
 
 using namespace threepp;
 
-namespace {
 
-    typedef std::pair<std::function<void()>, float> task;
+#ifndef CUSTOM_BACKEND
 
-    struct CustomComparator {
-        bool operator()(const task& l, const task& r) const { return l.second > r.second; }
-    };
-
-}// namespace
-
-struct Canvas::Impl {
-
-    GLFWwindow* window;
-
-    int fps_ = -1;
-
-    WindowSize size_;
-    Vector2 lastMousePos_;
-
-    std::priority_queue<task, std::vector<task>, CustomComparator> tasks_;
-    std::optional<std::function<void(WindowSize)>> resizeListener;
-    std::vector<KeyListener*> keyListeners;
-    std::vector<MouseListener*> mouseListeners;
-
-    explicit Impl(const Canvas::Parameters& params): size_(params.size_) {
+    void Canvas::Impl::backend_init_window() 
+    {
         glfwSetErrorCallback(error_callback);
 
         if (!glfwInit()) {
@@ -55,7 +32,7 @@ struct Canvas::Impl {
             glfwWindowHint(GLFW_SAMPLES, params.antialiasing_);
         }
 
-        window = glfwCreateWindow(params.size_.width, params.size_.height, params.title_.c_str(), nullptr, nullptr);
+        window = (void*)glfwCreateWindow(params.size_.width, params.size_.height, params.title_.c_str(), nullptr, nullptr);
         if (!window) {
             glfwTerminate();
             exit(EXIT_FAILURE);
@@ -70,19 +47,19 @@ struct Canvas::Impl {
                 images[0] = {static_cast<int>(favicon->width),
                              static_cast<int>(favicon->height),
                              favicon->getData()};
-                glfwSetWindowIcon(window, 1, images);
+                glfwSetWindowIcon((GLFWwindow*)window, 1, images);
             }
         }
 
-        glfwSetWindowUserPointer(window, this);
+        glfwSetWindowUserPointer((GLFWwindow*) window, this);
 
-        glfwSetKeyCallback(window, key_callback);
-        glfwSetMouseButtonCallback(window, mouse_callback);
-        glfwSetCursorPosCallback(window, cursor_callback);
-        glfwSetScrollCallback(window, scroll_callback);
-        glfwSetWindowSizeCallback(window, window_size_callback);
+        glfwSetKeyCallback((GLFWwindow*) window, key_callback);
+        glfwSetMouseButtonCallback((GLFWwindow*) window, mouse_callback);
+        glfwSetCursorPosCallback((GLFWwindow*) window, cursor_callback);
+        glfwSetScrollCallback((GLFWwindow*) window, scroll_callback);
+        glfwSetWindowSizeCallback((GLFWwindow*) window, window_size_callback);
 
-        glfwMakeContextCurrent(window);
+        glfwMakeContextCurrent((GLFWwindow*) window);
         gladLoadGL();
         glfwSwapInterval(params.vsync_ ? 1 : 0);
 
@@ -91,184 +68,65 @@ struct Canvas::Impl {
         }
 
         glEnable(GL_PROGRAM_POINT_SIZE);
-        //        glEnable(GL_POINT_SPRITE);
-        //        glEnable(GL_POINT_SMOOTH);
     }
 
-    [[nodiscard]] const WindowSize& getSize() const {
-        return size_;
+    bool Canvas::Impl::backend_should_window_close() 
+    {
+        return glfwWindowShouldClose((GLFWwindow*) window);
+    }
+    
+    void Canvas::Impl::backend_window_size(WindowSize size) 
+    {
+        glfwSetWindowSize((GLFWwindow*) window, size.width, size.height);
+    }
+    double Canvas::Impl::backend_get_time() 
+    {
+        return glfwGetTime();
     }
 
-    void setSize(WindowSize size) const {
-        glfwSetWindowSize(window, size.width, size.height);
+    void Canvas::Impl::backend_draw_complete() 
+    {
+        glfwSwapBuffers((GLFWwindow*) window);
+        glfwPollEvents();
     }
 
-    // http://www.opengl-tutorial.org/miscellaneous/an-fps-counter/
-    inline void measureFPS(double& lastTime, int& nbFrames) {
-        double currentTime = glfwGetTime();
-        nbFrames++;
-        if (currentTime - lastTime >= 1.0) {
-            fps_ = nbFrames;
-            nbFrames = 0;
-            lastTime += 1.0;
-        }
-    }
-
-    inline void handleTasks() {
-        while (!tasks_.empty()) {
-            auto& task = tasks_.top();
-            if (task.second < glfwGetTime()) {
-                task.first();
-                tasks_.pop();
-            } else {
-                break;
-            }
-        }
-    }
-
-    void animate(const std::function<void()>& f) {
-        double lastTime = glfwGetTime();
-        int nbFrames = 0;
-        while (!glfwWindowShouldClose(window)) {
-
-            measureFPS(lastTime, nbFrames);
-
-            handleTasks();
-
-            f();
-
-            glfwSwapBuffers(window);
-            glfwPollEvents();
-        }
-    }
-
-    void animate(const std::function<void(float)>& f) {
-
-        double lastTime = glfwGetTime();
-        int nbFrames = 0;
-        Clock clock;
-        while (!glfwWindowShouldClose(window)) {
-
-            measureFPS(lastTime, nbFrames);
-
-            handleTasks();
-
-            f(clock.getDelta());
-
-            glfwSwapBuffers(window);
-            glfwPollEvents();
-        }
-    }
-
-    void animate(const std::function<void(float, float)>& f) {
-
-        double lastTime = glfwGetTime();
-        int nbFrames = 0;
-        Clock clock;
-        while (!glfwWindowShouldClose(window)) {
-
-            measureFPS(lastTime, nbFrames);
-
-            handleTasks();
-
-            f(static_cast<float>(glfwGetTime()), clock.getDelta());
-
-            glfwSwapBuffers(window);
-            glfwPollEvents();
-        }
-    }
-
-    void onWindowResize(std::function<void(WindowSize)> f) {
-        this->resizeListener = std::move(f);
-    }
-
-    void addKeyListener(KeyListener* listener) {
-        auto find = std::find(keyListeners.begin(), keyListeners.end(), listener);
-        if (find == keyListeners.end()) {
-            keyListeners.emplace_back(listener);
-        }
-    }
-
-    bool removeKeyListener(const KeyListener* listener) {
-        auto find = std::find(keyListeners.begin(), keyListeners.end(), listener);
-        if (find != keyListeners.end()) {
-            keyListeners.erase(find);
-            return true;
-        }
-        return false;
-    }
-
-    void addMouseListener(MouseListener* listener) {
-        auto find = std::find(mouseListeners.begin(), mouseListeners.end(), listener);
-        if (find == mouseListeners.end()) {
-            mouseListeners.emplace_back(listener);
-        }
-    }
-
-    bool removeMouseListener(const MouseListener* listener) {
-        auto find = std::find(mouseListeners.begin(), mouseListeners.end(), listener);
-        if (find != mouseListeners.end()) {
-            mouseListeners.erase(find);
-            return true;
-        }
-        return false;
-    }
-
-    void invokeLater(const std::function<void()>& f, float t) {
-        tasks_.emplace(f, static_cast<float>(glfwGetTime()) + t);
-    }
-
-    ~Impl() {
-        glfwDestroyWindow(window);
+    void Canvas::Impl::backend_window_destroy() 
+    {
+        glfwDestroyWindow((GLFWwindow*) window);
         glfwTerminate();
     }
 
+
     static void window_size_callback(GLFWwindow* w, int width, int height) {
         auto p = static_cast<Canvas::Impl*>(glfwGetWindowUserPointer(w));
-        p->size_ = {width, height};
-        if (p->resizeListener) p->resizeListener.value().operator()(p->size_);
+        p->window_resize(width, height);
     }
 
     static void error_callback(int error, const char* description) {
-        std::cerr << "Error: " << description << std::endl;
+        window_error(error, description);
     }
 
     static void scroll_callback(GLFWwindow* w, double xoffset, double yoffset) {
         auto p = static_cast<Canvas::Impl*>(glfwGetWindowUserPointer(w));
-        auto listeners = p->mouseListeners;
-        if (listeners.empty()) return;
-        Vector2 delta{(float) xoffset, (float) yoffset};
-        for (auto l : listeners) {
-            l->onMouseWheel(delta);
-        }
+
+        p->mouse_scroll(xoffset, yoffset);
     }
 
     static void mouse_callback(GLFWwindow* w, int button, int action, int mods) {
         auto p = static_cast<Canvas::Impl*>(glfwGetWindowUserPointer(w));
 
-        auto listeners = p->mouseListeners;
-        for (auto l : listeners) {
+        //Remap action
+        if (action == GLFW_PRESS)
+            action = MOUSE_PRESS_ACTION;
+        else if (action == GLFW_RELEASE)
+            action = MOUSE_RELEASE_ACTION;
 
-            switch (action) {
-                case GLFW_PRESS:
-                    l->onMouseDown(button, p->lastMousePos_);
-                    break;
-                case GLFW_RELEASE:
-                    l->onMouseUp(button, p->lastMousePos_);
-                    break;
-                default:
-                    break;
-            }
-        }
-    }
+        p->mouse_press(button, action, mods);
+     }
 
     static void cursor_callback(GLFWwindow* w, double xpos, double ypos) {
         auto p = static_cast<Canvas::Impl*>(glfwGetWindowUserPointer(w));
-        p->lastMousePos_.set(static_cast<float>(xpos), static_cast<float>(ypos));
-        auto listeners = p->mouseListeners;
-        for (auto l : listeners) {
-            l->onMouseMove(p->lastMousePos_);
-        }
+        p->mouse_cursor(xpos, ypos);
     }
 
     static void key_callback(GLFWwindow* w, int key, int scancode, int action, int mods) {
@@ -278,40 +136,44 @@ struct Canvas::Impl {
         }
 
         auto p = static_cast<Canvas::Impl*>(glfwGetWindowUserPointer(w));
-        if (p->keyListeners.empty()) return;
 
-        KeyEvent evt{key, scancode, mods};
-        auto listeners = p->keyListeners;
-        for (auto l : listeners) {
-            switch (action) {
-                case GLFW_PRESS:
-                    l->onKeyPressed(evt);
-                    break;
-                case GLFW_RELEASE:
-                    l->onKeyReleased(evt);
-                    break;
-                case GLFW_REPEAT:
-                    l->onKeyRepeat(evt);
-                    break;
-                default:
-                    break;
-            }
+           switch (action) {
+            case GLFW_PRESS:
+                action = KEY_PRESS_ACTION;
+                break;
+            case GLFW_RELEASE:
+                action = KEY_RELEASE_ACTION;
+                break;
+            case GLFW_REPEAT:
+                action = KEY_REPEAT_ACTION;
+                break;
+            default:
+                break;
         }
+
+        p->keyboard_input(key, scancode, action, mods);
     }
-};
 
-Canvas::Canvas(const Canvas::Parameters& params)
-    : pimpl_(new Impl(params)) {}
+#else
 
-Canvas::Canvas(const std::string& name)
-    : Canvas(Canvas::Parameters().title(name)) {}
+void Canvas::Impl::backend_init_window() {}
+bool Canvas::Impl::backend_should_window_close() { return false; }
+void Canvas::Impl::backend_window_size(WindowSize size) {}
+double Canvas::Impl::backend_get_time() { return 0; }
+void Canvas::Impl::backend_draw_complete() {}
+void Canvas::Impl::backend_window_destroy() {}
+#endif
 
-Canvas::Canvas(const std::string& name, const std::unordered_map<std::string, ParameterValue>& values)
-    : Canvas(Canvas::Parameters(values).title(name)) {}
+Canvas::Canvas(const Canvas::Parameters& params, Canvas::Impl* imp) {
+
+    if (imp == nullptr)
+        imp = new Impl(params);
+   
+    pimpl_ = std::unique_ptr<Impl>(new Impl(params));
+}
 
 
 int threepp::Canvas::getFPS() const {
-
     return pimpl_->fps_;
 }
 
@@ -371,7 +233,6 @@ bool Canvas::removeMouseListener(const MouseListener* listener) {
 }
 
 void Canvas::invokeLater(const std::function<void()>& f, float t) {
-
     pimpl_->invokeLater(f, t);
 }
 
@@ -382,8 +243,6 @@ void* Canvas::window_ptr() const {
 
 Canvas::~Canvas() = default;
 
-
-Canvas::Parameters::Parameters() = default;
 
 Canvas::Parameters& Canvas::Parameters::title(std::string value) {
 
@@ -416,41 +275,4 @@ Canvas::Parameters& Canvas::Parameters::vsync(bool flag) {
     this->vsync_ = flag;
 
     return *this;
-}
-
-Canvas::Parameters::Parameters(const std::unordered_map<std::string, ParameterValue>& values) {
-
-    std::vector<std::string> unused;
-    for (const auto& [key, value] : values) {
-
-        bool used = false;
-
-        if (key == "antialiasing") {
-
-            antialiasing(std::get<int>(value));
-            used = true;
-
-        } else if (key == "vsync") {
-
-            vsync(std::get<bool>(value));
-            used = true;
-
-        } else if (key == "size") {
-
-            auto _size = std::get<WindowSize>(value);
-            size(_size);
-            used = true;
-        }
-
-        if (!used) {
-            unused.emplace_back(key);
-        }
-    }
-
-    if (!unused.empty()) {
-
-        std::cerr << "Unused Canvas parameters: [" << utils::join(unused, ',') << "]" << std::endl;
-
-    }
-
 }

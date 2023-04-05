@@ -400,8 +400,14 @@ add_library(threepp::threepp ALIAS threepp)
 target_compile_features(threepp PUBLIC cxx_std_17)
 target_link_libraries(threepp
         PRIVATE
-        glad::glad
+        glad::glad)
+		
+if (NOT THREEPP_USE_CUSTOM_BACKEND)
+target_link_libraries(threepp
         glfw::glfw)
+endif()		
+		
+		
 if (nlohmann_json_FOUND)
     target_link_libraries(threepp PRIVATE nlohmann_json::nlohmann_json)
 endif()
