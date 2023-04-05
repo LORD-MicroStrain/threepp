@@ -2,6 +2,7 @@
 #include "threepp/Canvas.hpp"
 #include "threepp/loaders/ImageLoader.hpp"
 
+#include "threepp/utils/StringUtils.hpp"
 
 #ifndef CUSTOM_BACKEND
   #define GLFW_INCLUDE_NONE
@@ -14,8 +15,64 @@ using namespace threepp;
 
 
 #ifndef CUSTOM_BACKEND
+static void window_size_callback(GLFWwindow* w, int width, int height) {
+    auto p = static_cast<Canvas::Impl*>(glfwGetWindowUserPointer(w));
+    p->window_resize(width, height);
+}
 
-    void Canvas::Impl::backend_init_window() 
+static void error_callback(int error, const char* description) {
+    std::cerr << "Error: " << description << std::endl;
+}
+
+static void scroll_callback(GLFWwindow* w, double xoffset, double yoffset) {
+    auto p = static_cast<Canvas::Impl*>(glfwGetWindowUserPointer(w));
+
+    p->mouse_scroll(xoffset, yoffset);
+}
+
+static void mouse_callback(GLFWwindow* w, int button, int action, int mods) {
+    auto p = static_cast<Canvas::Impl*>(glfwGetWindowUserPointer(w));
+
+    //Remap action
+    if (action == GLFW_PRESS)
+        action = Canvas::Impl::MOUSE_PRESS_ACTION;
+    else if (action == GLFW_RELEASE)
+        action = Canvas::Impl::MOUSE_RELEASE_ACTION;
+
+    p->mouse_press(button, action, mods);
+}
+
+static void cursor_callback(GLFWwindow* w, double xpos, double ypos) {
+    auto p = static_cast<Canvas::Impl*>(glfwGetWindowUserPointer(w));
+    p->mouse_cursor(xpos, ypos);
+}
+
+static void key_callback(GLFWwindow* w, int key, int scancode, int action, int mods) {
+    if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
+        glfwSetWindowShouldClose(w, GLFW_TRUE);
+        return;
+    }
+
+    auto p = static_cast<Canvas::Impl*>(glfwGetWindowUserPointer(w));
+
+    switch (action) {
+        case GLFW_PRESS:
+            action = Canvas::Impl::KEY_PRESS_ACTION;
+            break;
+        case GLFW_RELEASE:
+            action = Canvas::Impl::KEY_RELEASE_ACTION;
+            break;
+        case GLFW_REPEAT:
+            action = Canvas::Impl::KEY_REPEAT_ACTION;
+            break;
+        default:
+            break;
+    }
+
+    p->keyboard_input(key, scancode, action, mods);
+}
+
+    void Canvas::Impl::backend_init_window(const Canvas::Parameters& params) 
     {
         glfwSetErrorCallback(error_callback);
 
@@ -97,62 +154,6 @@ using namespace threepp;
     }
 
 
-    static void window_size_callback(GLFWwindow* w, int width, int height) {
-        auto p = static_cast<Canvas::Impl*>(glfwGetWindowUserPointer(w));
-        p->window_resize(width, height);
-    }
-
-    static void error_callback(int error, const char* description) {
-        window_error(error, description);
-    }
-
-    static void scroll_callback(GLFWwindow* w, double xoffset, double yoffset) {
-        auto p = static_cast<Canvas::Impl*>(glfwGetWindowUserPointer(w));
-
-        p->mouse_scroll(xoffset, yoffset);
-    }
-
-    static void mouse_callback(GLFWwindow* w, int button, int action, int mods) {
-        auto p = static_cast<Canvas::Impl*>(glfwGetWindowUserPointer(w));
-
-        //Remap action
-        if (action == GLFW_PRESS)
-            action = MOUSE_PRESS_ACTION;
-        else if (action == GLFW_RELEASE)
-            action = MOUSE_RELEASE_ACTION;
-
-        p->mouse_press(button, action, mods);
-     }
-
-    static void cursor_callback(GLFWwindow* w, double xpos, double ypos) {
-        auto p = static_cast<Canvas::Impl*>(glfwGetWindowUserPointer(w));
-        p->mouse_cursor(xpos, ypos);
-    }
-
-    static void key_callback(GLFWwindow* w, int key, int scancode, int action, int mods) {
-        if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
-            glfwSetWindowShouldClose(w, GLFW_TRUE);
-            return;
-        }
-
-        auto p = static_cast<Canvas::Impl*>(glfwGetWindowUserPointer(w));
-
-           switch (action) {
-            case GLFW_PRESS:
-                action = KEY_PRESS_ACTION;
-                break;
-            case GLFW_RELEASE:
-                action = KEY_RELEASE_ACTION;
-                break;
-            case GLFW_REPEAT:
-                action = KEY_REPEAT_ACTION;
-                break;
-            default:
-                break;
-        }
-
-        p->keyboard_input(key, scancode, action, mods);
-    }
 
 #else
 
@@ -163,14 +164,20 @@ double Canvas::Impl::backend_get_time() { return 0; }
 void Canvas::Impl::backend_draw_complete() {}
 void Canvas::Impl::backend_window_destroy() {}
 #endif
-
-Canvas::Canvas(const Canvas::Parameters& params, Canvas::Impl* imp) {
+    
+    Canvas::Canvas(const Canvas::Parameters& params, Canvas::Impl* imp) {
 
     if (imp == nullptr)
         imp = new Impl(params);
    
     pimpl_ = std::unique_ptr<Impl>(new Impl(params));
 }
+
+    Canvas::Canvas(const std::string& name)
+        : Canvas(Canvas::Parameters().title(name)) {}
+
+    Canvas::Canvas(const std::string& name, const std::unordered_map<std::string, ParameterValue>& values)
+        : Canvas(Canvas::Parameters(values).title(name)) {}
 
 
 int threepp::Canvas::getFPS() const {
@@ -244,6 +251,8 @@ void* Canvas::window_ptr() const {
 Canvas::~Canvas() = default;
 
 
+Canvas::Parameters::Parameters() = default;
+
 Canvas::Parameters& Canvas::Parameters::title(std::string value) {
 
     this->title_ = std::move(value);
@@ -275,4 +284,39 @@ Canvas::Parameters& Canvas::Parameters::vsync(bool flag) {
     this->vsync_ = flag;
 
     return *this;
+}
+
+Canvas::Parameters::Parameters(const std::unordered_map<std::string, ParameterValue>& values) {
+
+    std::vector<std::string> unused;
+    for (const auto& [key, value] : values) {
+
+        bool used = false;
+
+        if (key == "antialiasing") {
+
+            antialiasing(std::get<int>(value));
+            used = true;
+
+        } else if (key == "vsync") {
+
+            vsync(std::get<bool>(value));
+            used = true;
+
+        } else if (key == "size") {
+
+            auto _size = std::get<WindowSize>(value);
+            size(_size);
+            used = true;
+        }
+
+        if (!used) {
+            unused.emplace_back(key);
+        }
+    }
+
+    if (!unused.empty()) {
+
+        std::cerr << "Unused Canvas parameters: [" << utils::join(unused, ',') << "]" << std::endl;
+    }
 }

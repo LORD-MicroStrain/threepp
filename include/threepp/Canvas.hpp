@@ -48,7 +48,7 @@ namespace threepp {
 
         typedef std::variant<bool, int, WindowSize> ParameterValue;
 
-        explicit Canvas(const Parameters& params = Parameters(), Canvas::Impl *imp = nullptr);
+        explicit Canvas(const Parameters& params = Parameters(), Canvas::Impl* impl = nullptr);
 
         explicit Canvas(const std::string& name);
 
@@ -91,7 +91,7 @@ namespace threepp {
     public:
         struct Parameters {
 
-            Parameters(){};
+            Parameters();
 
             explicit Parameters(const std::unordered_map<std::string, ParameterValue>& values);
 
@@ -137,7 +137,7 @@ namespace threepp {
             std::vector<KeyListener*> keyListeners;
             std::vector<MouseListener*> mouseListeners;
 
-            virtual void backend_init_window();
+            virtual void backend_init_window(const Canvas::Parameters& params);
             virtual bool backend_should_window_close();
             virtual void backend_window_size(WindowSize size);
             virtual double backend_get_time();
@@ -145,7 +145,7 @@ namespace threepp {
             virtual void backend_window_destroy();
 
             explicit Impl(const Canvas::Parameters& params): size_(params.size_) {
-                backend_init_window();
+                backend_init_window(params);
             }
 
             [[nodiscard]] const WindowSize& getSize() const {

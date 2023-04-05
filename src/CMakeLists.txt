@@ -403,8 +403,7 @@ target_link_libraries(threepp
         glad::glad)
 		
 if (NOT THREEPP_USE_CUSTOM_BACKEND)
-target_link_libraries(threepp
-        glfw::glfw)
+target_link_libraries(threepp PRIVATE glfw::glfw)
 endif()		
 		
 		
