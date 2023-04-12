@@ -29,15 +29,11 @@ namespace threepp {
     };
 
 
-     namespace {
+    typedef std::pair<std::function<void()>, float> task;
 
-        typedef std::pair<std::function<void()>, float> task;
-
-        struct CustomComparator {
-            bool operator()(const task& l, const task& r) const { return l.second > r.second; }
-        };
-
-    }// namespace
+    struct CustomComparator {
+        bool operator()(const task& l, const task& r) const { return l.second > r.second; }
+    };
 
 
     class Canvas {
@@ -114,7 +110,7 @@ namespace threepp {
             friend struct Canvas::Impl;
         };
 
-        
+
         struct Impl {
 
             static const int KEY_ESCAPE = 1;
