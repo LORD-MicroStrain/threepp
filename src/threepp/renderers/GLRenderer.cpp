@@ -59,7 +59,8 @@ struct GLRenderer::Impl {
         GLRenderer::Impl* scope_;
     };
 
-    Canvas& canvas_;
+    //Microstrain edit to remove dependency on canvas
+    //Canvas& canvas_;
     GLRenderer& scope;
 
     gl::GLState state;
@@ -133,9 +134,11 @@ struct GLRenderer::Impl {
     std::unique_ptr<gl::GLBufferRenderer> bufferRenderer;
     std::unique_ptr<gl::GLIndexedBufferRenderer> indexedBufferRenderer;
 
-
-    Impl(GLRenderer& scope, Canvas& canvas, const GLRenderer::Parameters& parameters)
-        : scope(scope), canvas_(canvas), _size(canvas.getSize()),
+    //Microstrain edit to remove dependency on canvas
+    //Impl(GLRenderer& scope, Canvas& canvas, const GLRenderer::Parameters& parameters)
+    //    : scope(scope), canvas_(canvas), _size(canvas.getSize()),
+    Impl(GLRenderer& scope, const GLRenderer::Parameters& parameters)
+        : scope(scope), 
           _viewport(0, 0, _size.width, _size.height),
           _scissor(0, 0, _size.width, _size.height),
           background(state, parameters.premultipliedAlpha),
@@ -1066,8 +1069,9 @@ struct GLRenderer::Impl {
     friend struct gl::GLShadowMap;
 };
 
-GLRenderer::GLRenderer(Canvas& canvas, const GLRenderer::Parameters& parameters)
-    : pimpl_(std::make_unique<Impl>(*this, canvas, parameters)) {}
+//Microstrain edit to remove dependency on canvas
+GLRenderer::GLRenderer(const GLRenderer::Parameters& parameters)
+    : pimpl_(std::make_unique<Impl>(*this, parameters)) {}
 
 const gl::GLInfo& threepp::GLRenderer::info() {
 
@@ -1112,7 +1116,8 @@ void GLRenderer::setSize(WindowSize size) {
     int canvasWidth = pimpl_->_size.width * pimpl_->_pixelRatio;
     int canvasHeight = pimpl_->_size.height * pimpl_->_pixelRatio;
 
-    pimpl_->canvas_.setSize({canvasWidth, canvasHeight});
+    //Microstrain edit to remove canvas dependency
+    //pimpl_->canvas_.setSize({canvasWidth, canvasHeight});
 
     this->setViewport(0, 0, size.width, size.height);
 }
@@ -1129,7 +1134,8 @@ void GLRenderer::setDrawingBufferSize(int width, int height, int pixelRatio) {
 
     pimpl_->_pixelRatio = pixelRatio;
 
-    pimpl_->canvas_.setSize({width * pixelRatio, height * pixelRatio});
+    //Microstrain edit to remove canvas dependency
+    //pimpl_->canvas_.setSize({width * pixelRatio, height * pixelRatio});
 
     this->setViewport(0, 0, width, height);
 }

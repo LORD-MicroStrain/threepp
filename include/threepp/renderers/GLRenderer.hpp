@@ -73,7 +73,8 @@ namespace threepp {
 
         bool checkShaderErrors = false;
 
-        explicit GLRenderer(Canvas& canvas, const Parameters& parameters = {});
+        //Microstrain edit to remove dependency on canvas
+        explicit GLRenderer(const Parameters& parameters = {});
 
         const gl::GLInfo& info();
 
